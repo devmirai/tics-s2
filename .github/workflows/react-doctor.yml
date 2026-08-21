@@ -1,0 +1,58 @@
+name: React Doctor
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  statuses: write
+
+concurrency:
+  group: react-doctor-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: millionco/react-doctor@v2
+        id: doctor
+        with:
+          blocking: error
+
+      - name: Generar reporte
+        if: ${{ !cancelled() && github.event_name != 'pull_request' && steps.doctor.outputs.total-issues != '' && steps.doctor.outputs.total-issues != '0' }}
+        run: |
+          {
+            echo "## Reporte de React Doctor"
+            echo ""
+            echo "| Métrica | Valor |"
+            echo "| --- | --- |"
+            echo "| Score | ${{ steps.doctor.outputs.score }}/100 |"
+            echo "| Errores | ${{ steps.doctor.outputs.error-count }} |"
+            echo "| Warnings | ${{ steps.doctor.outputs.warning-count }} |"
+            echo "| Archivos afectados | ${{ steps.doctor.outputs.affected-files }} |"
+            echo ""
+            echo "El detalle de cada diagnóstico está en los logs del workflow."
+          } > react-doctor-report.md
+
+      - name: Abrir PR con el reporte
+        if: ${{ !cancelled() && github.event_name != 'pull_request' && steps.doctor.outputs.total-issues != '' && steps.doctor.outputs.total-issues != '0' }}
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: react-doctor/report
+          delete-branch: true
+          title: 'react-doctor: problemas detectados'
+          body-path: react-doctor-report.md
+          add-paths: react-doctor-report.md
+          commit-message: 'docs: agregar reporte de react-doctor'
