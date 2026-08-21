@@ -35,6 +35,7 @@ function App() {
   return (
     <main>
       <h1>Pokédex</h1>
+      <img src={`${SPRITES_URL}/25.png`} width="96" height="96" />
       <ul className="grid">
         {pokemon.map((p) => {
           const id = getId(p.url)
